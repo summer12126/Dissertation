@@ -1,0 +1,2109 @@
+# install.packages("car")
+# install.packages("questionr")
+# install.packages("ggplot2")
+# install.packages("stringr")
+# install.packages("corrplot")
+# install.packages("stats")
+# install.packages("countrycode")
+# install.packages('tidyverse')
+# install.packages('dplyr')
+# install.packages("psych")
+# install.packages('GPArotation')
+# install.packages('caret')
+# install.packages("RcmdrMisc")
+# library(foreign)
+# library(questionr)
+# library(ggplot2)
+# library(stringr)
+# library(dplyr)
+# library(corrplot)
+# library(stats)
+# library(countrycode)
+# library(tidyverse)
+# library(dplyr)
+# library(GPArotation)
+# library(caret)
+# setwd("/Users/summerlee/Desktop/Dissertation")
+
+#----------------------------------------#----------------------------------------
+
+rm(list = ls())
+
+ESS10 <- read.spss("ESS10e03_1.sav",to.data.frame=TRUE, use.value.labels = TRUE, max.value.labels=10, use.missings=TRUE)
+ESS9 <- read.spss("ESS9e03_1.sav",to.data.frame=TRUE, use.value.labels = TRUE, max.value.labels=10, use.missings=TRUE)
+ESS8 <- read.spss("ESS8e02_2.sav",to.data.frame=TRUE, use.value.labels = TRUE, max.value.labels=10, use.missings=TRUE)
+ESS7 <- read.spss("ESS7e02_1.sav",to.data.frame=TRUE, use.value.labels = TRUE, max.value.labels=10, use.missings=TRUE)
+
+
+attach(ESS10)
+attach(ESS9)
+attach(ESS8)
+attach(ESS7)
+
+
+ESS10 <- ESS10 %>% filter(!is.na(ESS10$cntry))
+ESS10 <- ESS10 %>% filter(!is.na(ESS10$brncntr))
+ESS9 <- ESS9 %>% filter(!is.na(ESS9$cntry))
+ESS9 <- ESS9 %>% filter(!is.na(ESS9$brncntr))
+ESS8 <- ESS8 %>% filter(!is.na(ESS8$cntry))
+ESS8 <- ESS8 %>% filter(!is.na(ESS8$brncntr))
+ESS7 <- ESS7 %>% filter(!is.na(ESS7$cntry))
+ESS7 <- ESS7 %>% filter(!is.na(ESS7$brncntr))
+
+
+# merging ALL ESS
+# Function to add NA as a level to factor variables
+add_na_level <- function(x) {
+  if (is.factor(x)) {
+    x <- addNA(x, ifany = TRUE)
+  }
+  return(x)
+}
+
+
+# Apply this function to all columns in your data frames
+ESS10[] <- lapply(ESS10, add_na_level)
+ESS9[] <- lapply(ESS9, add_na_level)
+ESS8[] <- lapply(ESS8, add_na_level)
+ESS7[] <- lapply(ESS7, add_na_level)
+
+ESS8$anweight <- ESS8$dweight * ESS8$pspwght * ESS8$pweight
+ESS7$anweight <- ESS7$dweight * ESS7$pspwght * ESS7$pweight
+
+# Now you can merge without getting the warning
+merged109 <- merge(ESS10, ESS9, all = TRUE)
+merged87 <- merge(ESS8, ESS7, all = TRUE)
+
+merged109[] <- lapply(merged109, add_na_level)
+merged87[] <- lapply(merged87, add_na_level)
+
+ESS <- merge(merged109, merged87, all = TRUE)
+
+
+# born.country
+ESS$cntry <- trimws(ESS$cntry)
+ESS$cntbrthd <- trimws(ESS$cntbrthd)
+ESS$cntbrthc <- trimws(ESS$cntbrthc)
+ESS$mbrncntc <- trimws(ESS$mbrncntc)
+ESS$mbrncntb <- trimws(ESS$mbrncntb)
+ESS$fbrncntc <- trimws(ESS$fbrncntc)
+ESS$fbrncntb <- trimws(ESS$fbrncntb)
+
+
+# ESS country
+ls_ESS_cntry <- c("AT", "BE", "CH", "CZ", "DE", "EE", "ES", "FI" , "FR", "GB", "HU" ,"IE", "LT", "NL", "NO", "PL", "PT", "SE" ,"SI")
+ESS <- ESS[ESS$cntry %in% ls_ESS_cntry,]
+length(table(ESS$cntry))
+
+
+
+# ESS immigrants origin country
+ESS$firstgen.born.country <- coalesce(ESS$cntbrthd, ESS$cntbrthc)
+ESS$secondgen.mborn.country <- coalesce(ESS$mbrncntc, ESS$mbrncntb)
+ESS$secondgen.fborn.country <- coalesce(ESS$fbrncntc, ESS$fbrncntb)
+
+
+ESS <- ESS[!ESS$firstgen.born.country %in% c(9999,8888,7777,6666), ]
+# ESS <- ESS[!ESS$secondgen.mborn.country %in% c(9999,8888,7777,6666), ]
+# ESS <- ESS[!ESS$secondgen.fborn.country %in% c(9999,8888,7777,6666), ]
+
+table(ESS$firstgen.born.country)
+table(ESS$cntbrthd)
+table(ESS$cntbrthc)
+table(ESS$secondgen.mborn.country)
+table(ESS$secondgen.fborn.country)
+
+
+
+
+#----------------------------------------#----------------------------------------
+
+# variables ESS$immigrants and ESS$non.immigrants 
+
+ESS <- ESS %>% filter(!is.na(ESS$cntry))
+ESS <- ESS %>% filter(!is.na(ESS$brncntr))
+ESS <- ESS %>% filter(!is.na(ESS$mocntr))
+ESS <- ESS %>% filter(!is.na(ESS$facntr))
+ESS <- ESS %>% filter(!(ESS$agea > 65 |ESS$agea <15 ))
+ESS <- ESS %>% filter(!(ESS$edulvlb == 5555 ))
+
+ESS$non.immigrants <- ESS$brncntr == "Yes" & ESS$mocntr == "Yes" & ESS$facntr == "Yes"
+table(ESS$non.immigrants)
+#FALSE   TRUE 
+
+ESS$immigrants <- ESS$non.immigrants == FALSE
+table(ESS$immigrants)
+#FALSE   TRUE 
+
+
+#----------------------------------------#----------------------------------------
+
+### subset ESS_Immigrants / ESS_Non_immigrants
+
+ESS_Immigrants <- subset(ESS, ESS$immigrants == TRUE)
+table(ESS_Immigrants$immigrants) # 16148
+ESS_Immigrants <- ESS_Immigrants[!ESS_Immigrants$cntry %in% c(9999,8888,7777,6666), ]
+ESS_Immigrants <- ESS_Immigrants[!is.na(ESS_Immigrants$edulvlb), ]
+
+sum(is.na(ESS_Immigrants$cntry))
+
+
+### ESS_Non_Immigrants
+ESS_Non_Immigrants <- subset(ESS, ESS$non.immigrants == TRUE)
+table(ESS_Non_Immigrants$non.immigrants) # 46318
+df_cntry_ESS_Non_Immigrants <- data.frame(table(ESS_Non_Immigrants$cntry))
+df_cntry_ESS_Non_Immigrants
+
+table(ESS_Non_Immigrants$essround)
+
+
+# remove NA
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$eduyrs), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[ESS_Non_Immigrants$eduyrs <= 30, ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$lrscale), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imsmetn), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imdfetn), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$impcntr), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imbgeco), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imueclt), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imwbcnt), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$polintr), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$euftf), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$edulvlb), ]
+
+
+table(ESS_Non_Immigrants$non.immigrants)
+
+
+
+
+## weight/ ESS7,8 pspwght*pweight /9,10 anweight 
+
+ESS10$anweight
+ESS9$anweight
+ESS8$anweight
+ESS7$anweight
+
+ESS <- rbind(ESS_Immigrants, ESS_Non_Immigrants)
+
+#----------------------------------------#----------------------------------------
+#----------------------------------------#----------------------------------------
+
+### general ESS_immigrants number
+
+# born.country
+
+## First generation / Second generation
+ESS_Firstgen <- subset(ESS_Immigrants, ESS_Immigrants$brncntr == "No")
+ESS_Secondgen <- subset(ESS_Immigrants, ESS_Immigrants$brncntr == "Yes" & (ESS_Immigrants$mocntr == "No"| ESS_Immigrants$facntr == "No"))
+
+df_firstgen_born_country <- ESS_Firstgen[,c('cntry', 'firstgen.born.country' )]
+
+table(ESS_Firstgen$cntry)
+table(ESS_Secondgen$cntry)
+table(ESS_Immigrants$cntry)
+
+
+
+## graph of born country immigrants  - first gen , second gen
+
+# first gen
+df_firstgen_born_country <- as.data.frame(table(ESS_Immigrants$firstgen.born.country))
+colnames(df_firstgen_born_country) <- c('Country', 'Count')
+df_firstgen_born_country$Count <- as.numeric(df_firstgen_born_country$Count)
+df_firstgen_born_country <- df_firstgen_born_country[order(-df_firstgen_born_country$Count),]
+length(df_firstgen_born_country$Country)
+df_firstgen_born_country_100 <- df_firstgen_born_country[1:100,]
+
+
+ggplot(df_firstgen_born_country_100, aes(x = reorder(Country, -Count), y = Count)) +
+  geom_bar(stat="identity") +
+  labs(x = "Country", y = "Count", 
+       title = "Top 100 Countries of Birth for First Generation Immigrants") +
+  scale_fill_brewer(palette="Spectral") +
+  scale_y_continuous(breaks = seq(0, max(df_firstgen_born_country_100$Count), by = 100)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=6)) 
+
+
+# ## second gen
+# # mother
+# df_secondgen_mborn_country <- as.data.frame(table(ESS_Immigrants$secondgen.mborn.country))
+# colnames(df_secondgen_mborn_country) <- c('Country', 'Count')
+# df_secondgen_mborn_country$Count <- as.numeric(df_secondgen_mborn_country$Count)
+# df_secondgen_mborn_country <- df_secondgen_mborn_country[order(-df_secondgen_mborn_country$Count),]
+# df_secondgen_mborn_country <- df_secondgen_mborn_country[1:100,]
+# 
+# df_secondgen_mborn_country
+# 
+# 
+# df_secondgen_mborn_country <- as.data.frame(table(ESS_Immigrants$secondgen.mborn.country))
+# colnames(df_secondgen_mborn_country) <- c('Country', 'Count')
+# df_secondgen_mborn_country$Count <- as.numeric(df_secondgen_mborn_country$Count)
+# df_secondgen_mborn_country <- df_secondgen_mborn_country[order(-df_secondgen_mborn_country$Count),]
+# df_secondgen_mborn_country <- df_secondgen_mborn_country[1:100,]
+# 
+# df_secondgen_mborn_country
+# 
+# 
+# # father
+# df_secondgen_fborn_country <- as.data.frame(table(ESS_Immigrants$secondgen.fborn.country))
+# colnames(df_secondgen_fborn_country) <- c('Country', 'Count')
+# 
+# df_secondgen_fborn_country$Count <- as.numeric(df_secondgen_fborn_country$Count)
+# df_secondgen_fborn_country <- df_secondgen_fborn_country[order(-df_secondgen_fborn_country$Count),]
+# df_secondgen_fborn_country <- df_secondgen_fborn_country[1:100,]
+# 
+# df_secondgen_fborn_country
+
+
+#----------------------------------------#----------------------------------------
+
+df_cntry <- data.frame(table(ESS$cntry))
+df_cntry_ESS_Immigrants <- data.frame(table(ESS_Immigrants$cntry))
+df_cntry_ESS_Non_Immigrants <- data.frame(table(ESS_Non_Immigrants$cntry))
+
+
+#----------------------------------------#----------------------------------------
+
+# ESS7~10 valid number of respondents  
+df_cntry <- data.frame(table(ESS$cntry))
+df_cntry_ESS_Immigrants <- data.frame(table(ESS_Immigrants$cntry))
+df_cntry_ESS_Non_Immigrants <- data.frame(table(ESS_Non_Immigrants$cntry))
+
+names(df_cntry) <- c('Country', 'Counts')
+names(df_cntry_ESS_Immigrants) <- c('Country', 'Counts.of.Immigrants')
+names(df_cntry_ESS_Non_Immigrants) <- c('Country', 'Counts.of.Non.Immigrants')
+
+df_cntry_counts <- cbind(df_cntry, df_cntry_ESS_Immigrants, df_cntry_ESS_Non_Immigrants  )
+df_cntry_counts$v1 <- NULL
+df_cntry_counts$v2 <- NULL
+df_cntry_counts$immigrants.percent <- round(df_cntry_counts$Counts.of.Immigrants/df_cntry_counts$Counts *100, 3)
+sum(df_cntry_counts$Counts) 
+sum(df_cntry_counts$Counts.of.Immigrants) 
+sum(df_cntry_counts$Counts.of.Non.Immigrants) 
+
+df_cntry_counts$Country <- NULL
+
+ls_ESS_number <- c(sum(df_cntry_counts$Counts), sum(df_cntry_counts$Counts.of.Immigrants), sum(df_cntry_counts$Counts.of.Non.Immigrants))
+ls_ESS_number
+
+round(sum(df_cntry_counts$Counts.of.Non.Immigrants)/ sum(df_cntry_counts$Counts) *100, 3)
+round(sum(df_cntry_counts$Counts.of.Immigrants)/ sum(df_cntry_counts$Counts) *100, 3)
+
+  
+df_long <- tidyr::pivot_longer(df_cntry_counts, 
+                               cols = c("Counts.of.Immigrants", "Counts.of.Non.Immigrants"), 
+                               names_to = "Type", 
+                               values_to = "Counts_new")
+
+
+# Create a bar plot
+ggplot(df_long, aes(fill = Type, y = Counts_new, x = Country)) + 
+  geom_bar(position = "dodge", stat = "identity") +
+  theme(axis.text.x = element_text(angle = 0, hjust = 1)) +
+  labs(x = "Country", y = "Count", fill = "Type", 
+       title = "Number of immigrant and non-immigrant respondents by country")
+
+
+df_immigrants.percent <- df_cntry_counts[,c('Country' , 'immigrants.percent')]
+
+#----------------------------------------#----------------------------------------
+# ESS_Immigrants_fldscr
+
+ESS_Immigrants$fldscr <- ESS_Immigrants$dscrrce == "Marked" | 
+  ESS_Immigrants$dscretn == "Marked" | 
+  ESS_Immigrants$dscrntn   == "Marked" | 
+  ESS_Immigrants$dscrrlg  == "Marked" | 
+  ESS_Immigrants$dscrlng  == "Marked"
+
+#----------------------------------------#----------------------------------------
+
+#@ host country 
+
+
+## H ; Immigrants in lower socio-economic host countries experience higher levels 
+## ~ of discrimination (EU GDP)
+# https://data.oecd.org/gdp/gross-domestic-product-gdp.htm#:~:text=Gross%20domestic%20product%20(GDP)%20is,and%20services%20(less%20imports).
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$host.gdp.2018.2020
+
+
+# (Ireland, Denmark,Austria,Belgium,Sweden, Germany, Finland, Malta ,France)
+# --- EU average 
+# (Italy, Slovenia,Cyprus, Czech republic, Lithuania, Estonia, Spain, Poland, Hungary, 
+# ~ Romania , Latvia , Croatia , Slovak republic , Greece , Bulgaria)
+
+
+ls_ESS_cntry <- c("AT", "BE", "CH", "CZ", "DE", "EE", "ES", "FI" , "FR", "GB", 
+                  "HU" ,"IE", "LT", "NL", "NO", "PL", "PT", "SE" , "SI")
+
+table(ESS$cntry)
+
+df_gdp_2018_2020 <- data.frame(cntry = c("IE", "NO", "CH", "NL", "AT", 
+                                         "BE", "SE", "DE", "FI", "FR", 
+                                         "GB", "SI", "CZ", "LT",  "EE", 
+                                         "ES", "PL", "HU", "PT"),
+gdp.dollar.per.capita = c(128343, 95027, 82390, 70966, 68664, 
+                          65818, 65209,  64146, 59808, 55698, 
+                          55378, 50713,  49957, 49235, 47721, 
+                          46748, 43606, 42665,  42339))
+df_gdp_2018_2020
+
+
+
+# Normalize data
+
+df_gdp_2018_2020$normalized <- round(scale(df_gdp_2018_2020$gdp.dollar.per.capita, center = TRUE, scale = TRUE), 3)
+df_gdp_2018_2020
+
+# Replace original data with normalized data in your main dataframe
+
+ESS_Immigrants$host.gdp.2018.2020 <- round(df_gdp_2018_2020$normalized[match(ESS_Immigrants$cntry, df_gdp_2018_2020$cntry)], 3)
+table(ESS_Immigrants$host.gdp.2018.2020)
+
+
+# chitest
+
+
+# glm
+glm(fldscr~ host.gdp.2018.2020 , ESS_Immigrants, family = binomial(), weights = anweight)
+
+
+
+# weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  gdp.2018.2020  
+# -1.6282             -0.6428  
+
+
+#----------------------------------------#----------------------------------------
+
+
+
+
+
+#----------------------------------------#----------------------------------------
+
+
+## H ; Immigrants living in countries with higher levels of education experience 
+
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$host.tertiary.percent
+
+
+
+# OECD
+
+# Create a vector of ISO country codes
+iso_codes <- c('IE', 'LT', 'CH', 'GB', 'NO', 
+'NL', 'SE', 'BE', 'FR', 'ES', 
+'EE', 'PL', 'FI', 'SI', 'AT', 
+'PT', 'CZ', 'DE', 'HU')
+
+setdiff(iso_codes, df_cntry$Country)
+
+# Create a vector of corresponding values
+values <- c(56.2, 55.6, 51.2, 50.8, 48.2, 
+            47.6, 47.5, 47.4, 46.9, 44.3, 
+            43.6, 43.5, 41.3, 40.7, 40.5, 
+            35.1, 33.3, 32.3, 30.6)
+
+df_eurostat_tertiary.percent <- data.frame(cntry = iso_codes, tertiary.percent = values)
+df_eurostat_tertiary.percent$rank <- rank(-df_eurostat_tertiary.percent$tertiary.percent)
+df_eurostat_tertiary.percent <- df_eurostat_tertiary.percent[order(df_eurostat_tertiary.percent$cntry),]
+df_eurostat_tertiary.percent
+
+# Normalize data
+df_eurostat_tertiary.percent$eurostat.tertiary.normalized <- round(scale(df_eurostat_tertiary.percent$tertiary.percent, center = TRUE, scale = TRUE),3)
+df_eurostat_tertiary.percent
+
+ESS_Immigrants$host.tertiary.percent <- df_eurostat_tertiary.percent$eurostat.tertiary.normalized[match(ESS_Immigrants$cntry, df_eurostat_tertiary.percent$cntry)]
+table(ESS_Immigrants$host.tertiary.percent)
+
+
+#chi.test
+t.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.tertiary.percent) # p-value < 2.2e-16
+
+
+# glm
+glm(fldscr ~ host.tertiary.percent, ESS_Immigrants, weights = anweight, family = binomial()) 
+
+
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+
+#----------------------------------------#----------------------------------------
+#@ Political hypotheses 
+
+## H ; Immigrants living in host countries whose supported democratic party or rightwing more discrimination.
+## DV ; ESS_Immigrants$fldscr
+
+## IV ; ESS_Immigrants$host.rightwing
+
+# lrscale - Placement on left right scale / 0 left , 10 right 
+
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$lrscale), ]
+
+table(lrscale)
+
+#non immigrants lrscale
+ESS_Non_Immigrants$lrscale
+
+df_rightwing <- ESS_Non_Immigrants[, c('cntry','lrscale' )]
+df_rightwing
+df_rightwing <- aggregate(df_rightwing, lrscale ~ cntry ,sum )
+df_rightwing
+df_rightwing$lrscale  <- df_rightwing$lrscale/ df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+
+
+                        
+# Normalize data
+
+df_rightwing$normolized <- round(scale(df_rightwing$lrscale, center = TRUE, scale = TRUE),3)
+df_rightwing<- df_rightwing[order(-df_rightwing$lrscale),]
+
+ESS_Immigrants$host.rightwing <- df_rightwing$normolized[match(ESS_Immigrants$cntry, df_rightwing$cntry)]
+table(ESS_Immigrants$host.rightwing)
+ESS_Immigrants[,c('cntry','host.rightwing' )]
+
+
+
+#chi.test
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.rightwing) # p-value < 2.2e-16
+
+glm(fldscr ~ host.rightwing, data = ESS_Immigrants, weights = anweight , family = binomial())
+
+
+# weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  host.rightwing  
+# -1.9035         0.3441 
+
+
+#----------------------------------------#----------------------------------------
+
+## H ; Immigrants living in host countries whose supported immigrants less discrimination
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$host.dontallow.immigrants
+
+#· imsmetn - Allow many/few immigrants of same race/ethnic group as majority / 4 Don't allow many to come and live here
+#· imdfetn - Allow many/few immigrants of different race/ethnic group from majority / 4 Don't allow many to come and live here
+#· impcntr - Allow many/few immigrants from poorer countries outside Europe / 4 Don't allow many to come and live here
+
+
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imsmetn), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imdfetn), ]
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$impcntr), ]
+
+
+
+#ESS_Non_Immigrants$dontallow.immigrants
+table(ESS_Non_Immigrants$imsmetn)
+table(ESS_Non_Immigrants$imdfetn)
+table(ESS_Non_Immigrants$impcntr)
+
+ESS_Non_Immigrants$imsmetn.numeric<- as.numeric(ESS_Non_Immigrants$imsmetn)
+ESS_Non_Immigrants$imsmetn.numeric<- ifelse(ESS_Non_Immigrants$imsmetn.numeric== 5, NA, ESS_Non_Immigrants$imsmetn.numeric )
+
+ESS_Non_Immigrants$imdfetn.numeric<- as.numeric(ESS_Non_Immigrants$imdfetn)
+ESS_Non_Immigrants$imdfetn.numeric<- ifelse(ESS_Non_Immigrants$imdfetn.numeric== 5, NA, ESS_Non_Immigrants$imdfetn.numeric )
+
+ESS_Non_Immigrants$impcntr.numeric<- as.numeric(ESS_Non_Immigrants$impcntr)
+ESS_Non_Immigrants$impcntr.numeric<- ifelse(ESS_Non_Immigrants$impcntr.numeric== 5, NA, ESS_Non_Immigrants$impcntr.numeric )
+
+table(ESS_Non_Immigrants$imsmetn.numeric)
+table(ESS_Non_Immigrants$imdfetn.numeric)
+table(ESS_Non_Immigrants$impcntr.numeric)
+
+
+df_dontallow_immigrants <- ESS_Non_Immigrants[, c('cntry', 'imsmetn.numeric','imdfetn.numeric', 'impcntr.numeric')]
+df_dontallow_immigrants <- aggregate(. ~ cntry, df_dontallow_immigrants, sum)
+df_dontallow_immigrants
+
+
+df_dontallow_immigrants$sum.mean <- rowSums(df_dontallow_immigrants[2:4]) /df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_dontallow_immigrants
+
+df_dontallow_immigrants$dontallow.rank <- rank(-df_dontallow_immigrants$sum.mean)
+df_dontallow_immigrants
+df_dontallow_immigrants[order(-df_dontallow_immigrants$sum.mean),]
+
+# Normalize data
+
+df_dontallow_immigrants$dontallow.normalized <- round(scale(df_dontallow_immigrants$sum.mean, center = TRUE, scale = TRUE),3)
+df_dontallow_immigrants
+
+
+ESS_Immigrants$host.dontallow.immigrants <- df_dontallow_immigrants$dontallow.normalized[match(ESS_Immigrants$cntry, df_dontallow_immigrants$cntry)]
+table(ESS_Immigrants$host.dontallow.immigrants)
+ESS_Immigrants[,c('cntry','host.dontallow.immigrants')]
+
+
+#chi.test
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.dontallow.immigrants) # p-value < 2.2e-16
+
+glm(fldscr ~ host.dontallow.immigrants, data = ESS_Immigrants,  weights = anweight, family = binomial())
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  host.allow.immigrants  
+# -1.72129               -0.07585 
+
+
+
+#----------------------------------------#----------------------------------------
+
+
+## H ; Immigrants living in host countries have good impression on immigrants less discrimination
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$immigrants.good.impression
+
+
+# · imbgeco - Immigration bad or good for country's economy /10 Good for the economy
+# · imueclt - Country's cultural life undermined or enriched by immigrants / 10 Cultural life enriched
+# · imwbcnt - Immigrants make country worse or better place to live  / 10 Better place to live
+
+
+# ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imbgeco), ]
+# ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imueclt), ]
+# ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$imwbcnt), ]
+# 
+# 
+# #ESS_Non_Immigrants$allow.immigrants
+# table(ESS_Non_Immigrants$imbgeco)
+# table(ESS_Non_Immigrants$imueclt)
+# table(ESS_Non_Immigrants$imwbcnt)
+# 
+# imbgeco
+# imueclt
+# imwbcnt
+# 
+# 
+df_immigrants_good_impression <- ESS_Non_Immigrants[, c('cntry','imbgeco','imueclt', 'imwbcnt' )]
+df_immigrants_good_impression
+df_immigrants_good_impression <- aggregate(df_immigrants_good_impression, . ~ cntry, sum)
+
+df_immigrants_good_impression$sum.mean <- rowSums(df_immigrants_good_impression[2:4]) /df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_immigrants_good_impression
+
+df_immigrants_good_impression$impression.rank <- rank(-df_immigrants_good_impression$sum.mean)
+df_immigrants_good_impression
+df_immigrants_good_impression[order(-df_immigrants_good_impression$sum.mean),]
+
+# Normalize data
+
+df_immigrants_good_impression$goodimpression.normalized <- round(scale(df_immigrants_good_impression$sum.mean, center = TRUE, scale= TRUE ),3)
+df_immigrants_good_impression
+
+
+ESS_Immigrants$host.immigrants.good.impression <- df_immigrants_good_impression$goodimpression.normalized[match(ESS_Immigrants$cntry, df_immigrants_good_impression$cntry)]
+table(ESS_Immigrants$host.immigrants.good.impression)
+ESS_Immigrants[,c('cntry','host.immigrants.good.impression')]
+# 
+# 
+# #chi.test
+# t.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.immigrants.good.impression)
+# 
+# glm(fldscr ~ host.immigrants.good.impression, ESS_Immigrants, weights = anweight, family = binomial())
+# 
+
+#----------------------------------------#----------------------------------------
+
+## H ; Host countries whose more interested in politics, immigrants feel less discrimination
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$host.interested.politics
+
+#· polintr - How interested in politics
+
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$polintr), ]
+
+
+#
+table(polintr)
+df_interested_politics <- ESS_Non_Immigrants[, c('cntry', 'polintr')]
+
+df_interested_politics$polintr <- ifelse(df_interested_politics$polintr == 'Very interested', 3,
+                                         ifelse(df_interested_politics$polintr == 'Quite interested', 2,
+                                                ifelse(df_interested_politics$polintr == 'Hardly interested', 1,
+                                                       ifelse(df_interested_politics$polintr == 'Not at all interested', 0, NA))))
+
+df_interested_politics
+df_interested_politics <- aggregate(polintr ~ cntry, df_interested_politics, sum)
+df_interested_politics
+
+df_interested_politics$polintr <- df_interested_politics$polintr /df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+
+
+# Normalize data
+df_interested_politics$normalized <- round(scale(df_interested_politics$polintr, center = TRUE, scale = TRUE),3)
+df_interested_politics
+
+ESS_Immigrants$host.interested.politics <- df_interested_politics$normalized[match(ESS_Immigrants$cntry, df_interested_politics$cntry)]
+table(ESS_Immigrants$host.interested.politics)
+ESS_Immigrants[,c('cntry','host.interested.politics')]
+
+
+
+#chi.test
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.interested.politics) # p-value < 2.2e-16
+
+glm(fldscr ~ host.interested.politics, data = ESS_Immigrants, weights = anweight, family = binomial()) 
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  host.interested.politics  
+# -1.71589                  -0.08616  
+
+
+
+
+#----------------------------------------#----------------------------------------
+## H ; Immigrants living Host countries who Pro expansion EU feel less discrimination
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$host.EU.expansion
+
+# euftf - European Union: European Unification already gone too far 0/ 
+
+ESS_Non_Immigrants <- ESS_Non_Immigrants[!is.na(ESS_Non_Immigrants$euftf), ]
+
+
+# 10 -> Unification should go further 
+table(euftf)
+df_EU_expansion <- ESS_Non_Immigrants[, c('cntry', 'euftf')]
+df_EU_expansion <- aggregate(euftf ~ cntry, df_EU_expansion, sum)
+df_EU_expansion
+
+df_EU_expansion$euftf <- df_EU_expansion$euftf / df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_EU_expansion
+
+# Normalize data
+
+df_EU_expansion$normalized <- round(scale(df_EU_expansion$euftf, center = TRUE, scale = TRUE  ),3)
+
+ESS_Immigrants$host.EU.expansion <- df_EU_expansion$normalized[match(ESS_Immigrants$cntry, df_EU_expansion$cntry)]
+table(ESS_Immigrants$host.EU.expansion)
+ESS_Immigrants[,c('cntry','host.EU.expansion')]
+
+
+# chi, logistic
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.EU.expansion) # p-value < 2.2e-16
+
+glm(fldscr ~ host.EU.expansion, data = ESS_Immigrants, weights = anweight, family = binomial())
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  host.EU.expansion  
+# -1.7017            -0.1171    
+
+
+
+
+
+#----------------------------------------#----------------------------------------
+
+#@ Interaction hypotheses
+## H ; The ratio of immigrants is high in a host country, immigrants experience less than discrimination.  
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$host.foreign.born.percent
+
+ls_ESS_cntry
+#https://data.oecd.org/migration/foreign-born-population.htm#indicator-chart
+
+df_OECE_foreign.born.percent <- data.frame( 'cntry' = c("CH", "AT", "SE", "IE", "BE", 
+                                                             "DE", "NO", "EE", "GB", "ES", 
+                                                             "NL", "FR", "SI", "PT", "CZ", 
+                                                             "FI", "HU", "LT", "PL"), 
+                                         'host.foreign.born.percent' = c(29.5, 19.1, 18.8, 17.3, 16.8, 
+                                                                       15.8, 15.4, 14.8, 13.7, 13.3, 
+                                                                       13, 12.5, 12, 10.2, 7.8, 
+                                                                       6.7, 5.5, 4.7, 1.8))
+
+df_OECE_foreign.born.percent
+names(df_OECE_foreign.born.percent)
+
+
+# Normalize data
+
+df_OECE_foreign.born.percent$normalized<- round(scale(df_OECE_foreign.born.percent$host.foreign.born.percent, center = TRUE, scale=TRUE ),3)
+
+ESS_Immigrants$host.foreign.born.percent <- df_OECE_foreign.born.percent$normalized[match(ESS_Immigrants$cntry,df_OECE_foreign.born.percent$cntry)]
+table(ESS_Immigrants$host.foreign.born.percent)
+ESS_Immigrants[,c('cntry','host.foreign.born.percent')]
+
+
+
+# chi
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$host.foreign.born.percent) # p-value < 2.2e-16
+
+glm(fldscr ~ host.foreign.born.percent, data = ESS_Immigrants, family = binomial(), weights = anweight)
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  host.immigrants.stock  
+# -1.80501                0.08208  
+
+
+
+
+
+#----------------------------------------#----------------------------------------
+#----------------------------------------#----------------------------------------
+
+#----------------------------------------#----------------------------------------
+
+
+## H ; Immigrants from Non.EU.schengen experience a higher level of discrimination than migrants in their host countries.  
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$immigrants.non.EUschengen
+
+
+
+#  EU countries # 27
+ls_EU_countries <- c("AT", "BE", "BG", "DE", "CY", "CZ", "DK", "EE","ES", "FI", "FR", 
+                               "GR", "HR","HU", "IE", "IT", "LV", "LT", "LU", "MT", "NL", 
+                              "PL", "PT", "RO","SE","SI", "SK")
+
+
+# Schengen Area countries # 27
+ls_schengen_countries <- c("AT", "BE", "CH", "CZ", "DE", "DK", 
+                           "EE", "ES", "FI", "FR", "GR", "HR", 
+                           "HU", "IS", "IT", "LI", "LT", "LU", 
+                           "LV", "MT", "NL", "NO", "PL", "PT", 
+                           "SE", "SI", "SK")
+
+setdiff(ls_EU_countries,ls_schengen_countries) # [1] "BG" "CY" "IE" "RO"
+
+# unique EU and Schengen Area countries # 31
+ls_eu_schengen_countries <- c("AT", "BE", "BG", "CH", "CY", "CZ", 
+                             "DE", "DK", "EE", "ES", "FI", "FR", 
+                              "GR", "HR", "HU", "IE", "IS", "IT", 
+                              "LI", "LT", "LU", "LV", "MT", "NL", 
+                              "NO", "PL", "PT", "RO", "SE", "SI", "SK")
+
+
+ls_EUschengen_ESS <-
+  c("AT", "BE", "BG", "CH", "CY", "CZ", "DE", "DK", "EE" , "ES", "FI" , "FR",  "GB", "GR", "HR", "HU" ,"IE" , "IS", "IT", "LT", "LV", "NL","NO", "PL", "PT", "SE", "SI", "SK")
+
+
+ESS_Immigrants$origin.non.EUschengen <- !(ESS_Immigrants$firstgen.born.country %in% ls_eu_schengen_countries | 
+                                             (ESS_Immigrants$secondgen.mborn.country %in% ls_eu_schengen_countries & ESS_Immigrants$secondgen.fborn.country %in% ls_eu_schengen_countries))
+
+ESS_Immigrants$origin.non.EUschengen.numeric <- as.numeric(ESS_Immigrants$origin.non.EUschengen)                                       
+table(ESS_Immigrants$origin.non.EUschengen.numeric)
+# FALSE 0  TRUE  1 
+# 4728 14320 
+
+
+# chi
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$origin.non.EUschengen.numeric) #p-value < 2.2e-16
+
+glm(fldscr~origin.non.EUschengen.numeric, ESS_Immigrants, family = binomial(), weights = anweight)
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  immigrants.non.EUschengen.numeric  
+# -2.4884                             0.8891  
+
+
+
+#----------------------------------------#----------------------------------------
+
+## H ; Immigrants from EU.schengen experience a less level of discrimination than migrants in their host countries.  
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$immigrants.EUschengen
+
+ESS_Immigrants$immigrants.EUschengen <- (ESS_Immigrants$firstgen.born.country %in% ls_eu_schengen_countries | 
+                                                (ESS_Immigrants$secondgen.mborn.country %in% ls_eu_schengen_countries & ESS_Immigrants$secondgen.fborn.country %in% ls_eu_schengen_countries))
+ESS_Immigrants$immigrants.EUschengen.numeric <- as.numeric(ESS_Immigrants$immigrants.EUschengen)
+table(ESS_Immigrants$immigrants.EUschengen)
+table(ESS_Immigrants$immigrants.EUschengen.numeric)
+
+# 0       1
+# FALSE  TRUE 
+# 14320  4728 
+
+
+
+
+# chi
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$immigrants.EUschengen.numeric) #p-value < 2.2e-16
+
+glm(fldscr~immigrants.EUschengen.numeric, ESS_Immigrants, family = binomial(), weights = anweight)
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  immigrants.EUschengen.numeric  
+# -1.5993                        -0.8891  
+
+
+
+
+#----------------------------------------#----------------------------------------
+#@ International relations
+
+## H ; Immigrants from Russia experience a higher level of discrimination than European migrants in their host countries. only 
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$immigrants.from.RU => compare the RU ??? possible ?? 
+
+
+ESS_Immigrants$immigrants.from.RU <- ESS_Immigrants$firstgen.born.country == 'RU' | 
+  (ESS_Immigrants$secondgen.mborn.country == 'RU' & ESS_Immigrants$secondgen.fborn.country == 'RU')
+
+ESS_Immigrants$immigrants.fromRU.numeric <- as.numeric(ESS_Immigrants$immigrants.from.RU)
+table(ESS_Immigrants$immigrants.from.RU)
+
+# FALSE   TRUE
+# 0     1 
+# 9348  1515 
+
+
+
+# chi
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$immigrants.fromRU.numeric) # p-value = 0.8777
+
+
+glm(fldscr~immigrants.fromRU.numeric, ESS_Immigrants, family = binomial(), weights = anweight)
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  immigrants.fromRU.numeric  
+# -1.6380                    -0.8475  
+
+
+#----------------------------------------#----------------------------------------
+#@ citizenship
+
+## H ; Immigrants who are citizen lower level of discrimination 
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$ctzcntr.numeric 
+
+table(ESS_Immigrants$ctzcntr)
+ESS_Immigrants$ctzcntr.numeric <- as.numeric(ESS_Immigrants$ctzcntr)
+table(ESS_Immigrants$ctzcntr.numeric)
+ESS_Immigrants$ctzcntr.numeric <- ifelse(ESS_Immigrants$ctzcntr == "Yes", 1,
+                                     ifelse(ESS_Immigrants$ctzcntr == "No", 0, NA))
+
+
+
+# chi
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$ctzcntr.numeric) #p-value = 6.053e-15
+
+glm(fldscr~ctzcntr.numeric, ESS_Immigrants, family = binomial() , weights = anweight)
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  ctzcntr.numeric  
+# -1.6615          -0.1469  
+
+#----------------------------------------#----------------------------------------
+
+#@ political action 
+
+
+# H ; Immigrants who are politically active experience more discrimination than those who are not.
+
+## DV ; ESS_Immigrants$fldscr
+
+## IV ; 
+#· polintr - How interested in politics
+#· vote - Voted last national election
+
+#· contplt - Contacted politician or government official last 12 months
+#· badge - Worn or displayed campaign badge/sticker last 12 months
+#· sgnptit - Signed petition last 12 months
+#· pbldmna - Taken part in public demonstration last 12 months
+#· pstplonl - Posted or shared anything about politics online last 12 months 
+#· clsprty - Feel closer to a particular party than all other parties
+
+table(polintr)
+table(vote)
+
+
+ESS_Immigrants$polintr.numeric <- ifelse(ESS_Immigrants$polintr == "Very interested", 3,
+                                     ifelse(ESS_Immigrants$polintr == "Quite interested", 2,
+                                            ifelse(ESS_Immigrants$polintr == "Hardly interested", 1,
+                                                   ifelse(ESS_Immigrants$polintr == "Not at all interested", 0, NA))))
+
+table(ESS_Immigrants$polintr.numeric)
+
+
+
+#----------------------------------------#----------------------------------------
+
+#@ can vote 
+## H ; Immigrants who can vote experience less discrimination than those who are not.
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$vote.numeric
+
+
+#· vote - Voted last national election
+
+table(ESS_Immigrants$vote)
+
+ESS_Immigrants$vote.numeric <- ifelse(ESS_Immigrants$vote == 'Yes', 1, 0)
+table(ESS_Immigrants$vote.numeric)
+
+# chi
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$vote.numeric) #p-value < 2.2e-16
+
+glm(fldscr~vote.numeric, ESS_Immigrants, family = binomial() , weights = anweight)
+
+
+
+# weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  vote.numeric  
+# -1.5937       -0.4781  
+
+#----------------------------------------#----------------------------------------
+#@ religion hypotheses
+
+## H ; Muslim immigrants experience higher levels of discrimination in European countries.
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$Islamic.numeric
+
+
+#· rlgdnm - Religion or denomination belonging to at present (Islamic)
+#· rlgdnme - Religion or denomination belonging to in the past (Islamic)
+
+table(ESS_Immigrants[, c('essround', 'rlgdnme') ])
+
+table(ESS_Immigrants$rlgdnm)
+table(ESS_Immigrants$rlgdnme)
+
+# Islam
+ESS_Immigrants$Islamic <- ESS_Immigrants$rlgdnm == "Islamic" | ESS_Immigrants$rlgdnme == "Islamic" | 
+  ESS_Immigrants$rlgdnm == "Islam" | ESS_Immigrants$rlgdnme == "Islam"
+ESS_Immigrants$Islamic.numeric <- as.numeric(ESS_Immigrants$Islamic)
+table(ESS_Immigrants$Islamic.numeric)
+
+# Christian
+ESS_Immigrants$Catholic.Protestant <- ESS_Immigrants$rlgdnm == "Roman Catholic" | ESS_Immigrants$rlgdnme == "Roman Catholic"|
+  ESS_Immigrants$rlgdnm == "Protestant" | ESS_Immigrants$rlgdnme == "Protestant" 
+table(ESS_Immigrants$Catholic.Protestant)
+ESS_Immigrants$Catholic.Protestant.numeric <- as.numeric(ESS_Immigrants$Catholic.Protestant)
+table(ESS_Immigrants$Catholic.Protestant.numeric)
+
+
+ESS_Immigrants$Ortho.otherChristian <- ESS_Immigrants$rlgdnm == "Eastern Orthodox" | ESS_Immigrants$rlgdnme == "Eastern Orthodox" |
+  ESS_Immigrants$rlgdnm == "Other Christian denomination" | ESS_Immigrants$rlgdnme == "Other Christian denomination"
+table(ESS_Immigrants$Ortho.otherChristian)
+ESS_Immigrants$Ortho.otherChristian.numeric <- as.numeric(ESS_Immigrants$Ortho.otherChristian)
+table(ESS_Immigrants$Ortho.otherChristian.numeric)
+
+
+
+# 1. chisqr
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$Islamic.numeric ) # p-value < 2.2e-16
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$Catholic.Protestant.numeric ) #  p-value < 2.2e-16
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$Ortho.otherChristian.numeric )  #  p-value < 2.2e-16
+
+
+# 2. logistic 
+glm(fldscr ~ Islamic.numeric + Catholic.Protestant.numeric + Ortho.otherChristian.numeric  ,data = ESS_Immigrants, family = binomial(), weights = anweight)
+
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  Islamic.numeric  
+# -1.979            1.207  
+
+
+#----------------------------------------#----------------------------------------
+
+#@ Economic Hypotheses
+
+## H; Immigrants who are unemployed face higher discrimination than those gainfully non-employed.
+
+## DV ; ESS_Immigrants$fldscr
+
+## IV ; 
+
+
+
+# · uemp3m - Ever unemployed and seeking work for a period more than three months  / Yes, No
+# · uemp12m - Any period of unemployment and work seeking lasted 12 months or more / Yes, No
+# · uemp5yr - Any period of unemployment and work seeking within last 5 years / Yes, No
+
+
+table(ESS_Immigrants$uemp3m)
+table(ESS_Immigrants$uemp12m)
+table(ESS_Immigrants$uemp5yr)
+
+
+# ESS_Immigrants$Ever.paid  <- ifelse(ESS_Immigrants$pdjobev == "Yes", 1,0)
+ESS_Immigrants$neveremployed.seekingjob <- ifelse(ESS_Immigrants$uemp3m == "Yes", 1,0)
+ESS_Immigrants$unemployed.more.12m <- ifelse(ESS_Immigrants$uemp12m == "Yes", 1,0)
+ESS_Immigrants$unemployed.more.5yr <- ifelse(ESS_Immigrants$uemp5yr == "Yes", 1,0)
+
+
+
+# 1. chisqr
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$neveremployed.seekingjob ) # p-value < 2.2e-16
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$unemployed.more.12m ) # p-value < 2.2e-16
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$unemployed.more.5yr ) # p-value < 2.2e-16
+
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  unemployed.more.12m.numeric  
+# -1.9406                       0.5878  
+
+
+
+
+
+#----------------------------------------#----------------------------------------
+
+## H: Immigrants who are poor face higher discrimination 
+
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$hinctnta.numeric
+
+# · hinctnta - Household's total net income, all sources
+
+
+table(ESS_Immigrants$hinctnta)
+ESS_Immigrants$hinctnta.numeric <- as.numeric(ESS_Immigrants$hinctnta)
+table(ESS_Immigrants$hinctnta.numeric)
+
+ESS_Immigrants$hinctnta.numeric[ESS_Immigrants$hinctnta.numeric == 11] <- 0
+ESS_Immigrants$hinctnta.numeric
+
+
+# 1. chisqr
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$hinctnta.numeric ) # p-value = 3.987e-07
+
+glm(fldscr ~  hinctnta.numeric , data = ESS_Immigrants, family = binomial(), weights = anweight)
+
+
+# data = ESS_Immigrants, weights = anweight)
+# 
+# Coefficients:
+#   (Intercept)  hinctnta.numeric  
+# -1.730005         -0.004624  
+
+#----------------------------------------#----------------------------------------
+## H: Immigrants who are more educated face higher discrimination 
+
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$eduyrs
+
+
+table(ESS_Immigrants$eduyrs)
+table(ESS_Immigrants$edulvlb)
+
+
+# 1. chisqr
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$eduyrs ) # p-value = 0.003812
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$edulvlb ) # 1.35e-10
+
+glm(fldscr ~  eduyrs , data = ESS_Immigrants, family = binomial(), weights = anweight)
+glm(fldscr ~  edulvlb , data = ESS_Immigrants, family = binomial(), weights = anweight)
+
+# immigrants edulevel and fldscr 
+df_immigrants_highedulevel_morefldscr <- as.data.frame.matrix(table(ESS_Immigrants[,c( 'edulvlb' , 'fldscr')])) 
+colnames(df_immigrants_highedulevel_morefldscr) <- c('nofldscr', 'fldscr')
+df_immigrants_highedulevel_morefldscr$edu.level <- rownames(df_immigrants_highedulevel_morefldscr)
+df_immigrants_highedulevel_morefldscr$percent.fldscr <- round(df_immigrants_highedulevel_morefldscr$fldscr/ df_immigrants_highedulevel_morefldscr$nofldscr *100,3)
+df_immigrants_highedulevel_morefldscr
+
+
+
+ggplot(df_immigrants_highedulevel_morefldscr, aes(x=edu.level, y=percent.fldscr, fill=percent.fldscr)) +
+  geom_bar(stat="identity") +
+  labs(x="Education Level", 
+       y="Percentage of Immigrants Feeling Discrimination", 
+       fill="Percentage Discriminated", 
+       title="Distribution of Immigrants by Education Level and Percentage Feeling Discrimination") +
+  theme_minimal() +
+  theme(axis.text.x=element_text(angle=0, hjust=1)) +
+  scale_fill_gradient(low = "white", high = "red") +
+  scale_y_continuous(breaks = seq(0, max(df_immigrants_highedulevel_morefldscr$percent.fldscr, by=5)))
+
+#----------------------------------------#----------------------------------------
+## H: Immigrants who belong to minority feel more dscr 
+
+
+## DV ; ESS_Immigrants$fldscr
+## IV ; ESS_Immigrants$
+# · blgetmg - Belong to minority ethnic group in country ESS789 / Yes-> minor
+# · feethngr - Feel part of same race or ethnic group as most people in country ESS10 / No-> minor
+
+table(ESS_Immigrants$blgetmg) 
+table(ESS_Immigrants$feethngr)
+ESS_Immigrants$blgetmg.numeric <- ifelse(ESS_Immigrants$blgetmg == 'Yes', 1, 0)
+ESS_Immigrants$feethngr.numeric <- ifelse(ESS_Immigrants$feethngr == 'No', 1, 0)
+
+ESS_Immigrants$minority.ethnic <- ESS_Immigrants$blgetmg.numeric==1 | ESS_Immigrants$feethngr.numeric ==1
+
+ESS_Immigrants$minority.ethnic.numeric <- as.numeric(ESS_Immigrants$minority.ethnic)
+table(ESS_Immigrants$minority.ethnic.numeric)
+
+# 1. chisqr
+
+chisq.test(ESS_Immigrants$fldscr, ESS_Immigrants$minority.ethnic.numeric ) # p-value = 0.003812
+glm(fldscr ~  minority.ethnic.numeric , data = ESS_Immigrants, family = binomial(), weights = anweight)
+
+
+#----------------------------------------#----------------------------------------
+
+# # never employed, unemployed 
+# · uemp3m - Ever unemployed and seeking work for a period more than three months
+# · uemp12m - Any period of unemployment and work seeking lasted 12 months or more 
+# · uemp5yr - Any period of unemployment and work seeking within last 5 years
+
+
+# never employed
+table(ESS_Immigrants$neveremployed.seekingjob)
+ESS_Immigrants$neveremployed.seekingjob <- ESS_Immigrants$uemp3m == 'Yes'
+ESS_Immigrants$neveremployed.seekingjob.numeric <- as.numeric(ESS_Immigrants$neveremployed.seekingjob)
+table(ESS_Immigrants$neveremployed.seekingjob.numeric) # unemployed 1
+
+# unemployed
+
+ESS_Immigrants$unemployed.more.12m <-ESS_Immigrants$uemp12m == 'Yes' | ESS_Immigrants$uemp5yr == 'Yes'
+ESS_Immigrants$unemployed.more.12m.numeric <- as.numeric(ESS_Immigrants$unemployed.more.12m)
+table(ESS_Immigrants$unemployed.more.12m.numeric) # unemployed 1
+
+
+#employed. immigrants
+table(ESS_Immigrants$emplrel)
+ESS_Immigrants$employed <- ESS_Immigrants$emplrel == 'Employee' |ESS_Immigrants$emplrel == 'Self-employed' |
+  ESS_Immigrants$emplrel == 'Working for own family business'
+
+table(ESS_Immigrants$employed)
+ESS_Immigrants$employed.numeric <- as.numeric(ESS_Immigrants$employed) # employed 1
+
+# neveremployed.seekingjob.numeric
+# unemployed.more.12m.numeric
+# employed.numeric
+#----------------------------------------#----------------------------------------
+
+table(ESS_Non_Immigrants[,c('essround', 'edulvlb')])
+
+
+
+
+#----------------------------------------#----------------------------------------
+### Factor analysis 
+
+vars <- c('host.gdp.2018.2020',
+          'host.tertiary.percent',
+          'host.rightwing',
+          'host.dontallow.immigrants',
+          'host.interested.politics',
+          'host.EU.expansion',
+          'host.foreign.born.percent',
+          'origin.non.EUschengen.numeric',
+          'ctzcntr.numeric',
+          'polintr.numeric',
+          'vote.numeric',
+          'Islamic.numeric',
+          'Catholic.Protestant.numeric',
+          'Ortho.otherChristian.numeric',
+          'minority.ethnic.numeric',
+          'neveremployed.seekingjob.numeric' , 
+          'unemployed.more.12m.numeric' , 
+          'employed.numeric' , 
+          'hinctnta.numeric',
+          'edulvlb')
+
+list(vars)
+
+# library(psych)
+
+# Subset the data
+df_factor_analysis <- ESS_Immigrants[vars]
+# missing_vars <- vars[!(vars %in% colnames(ESS_Immigrants))]
+# print(missing_vars)
+
+df_factor_analysis <- na.omit(df_factor_analysis)
+# psych::fa(r = df_factor_analysis, nfactors = 9, rotate = "varimax")
+# fa_result <- psych::fa(r = df_factor_analysis, nfactors = 8, rotate = "varimax")
+# fa_result
+# df_faresult_loadings <- fa_result$loadings
+# df_faresult_loadings <- as.data.frame.matrix(df_faresult_loadings)
+# df_faresult_loadings <- round(df_faresult_loadings, 2)
+
+
+library(psych)
+library(GPArotation)
+library(RcmdrMisc)
+KMO(df_factor_analysis)
+cortest.bartlett(df_factor_analysis)
+scree(df_factor_analysis[,1:20])
+
+
+f2<-factanal(df_factor_analysis[,1:20],factors=9,rotation="varimax")
+f2
+# f1<-factanal(df_factor_analysis[,1:22],factors=10,rotation="none")
+# f1
+# f3<-factanal(df_factor_analysis[,1:22],factors=10,rotation="oblimin")
+# f3
+
+df_faresult_loadings <- f2$loadings[,1:9]
+fa.diagram(df_faresult_loadings)
+df_faresult_loadings <- round(f2$loadings[,1:9], 3)
+
+
+          
+#----------------------------------------#----------------------------------------
+### linear model 
+
+# unemployed 
+
+# # never employed, unemployed 
+# · uemp3m - Ever unemployed and seeking work for a period more than three months
+# · uemp12m - Any period of unemployment and work seeking lasted 12 months or more 
+# · uemp5yr - Any period of unemployment and work seeking within last 5 years
+
+
+# never employed
+table(ESS_Immigrants$neveremployed.seekingjob)
+ESS_Immigrants$neveremployed.seekingjob <- ESS_Immigrants$uemp3m == 'Yes'
+ESS_Immigrants$neveremployed.seekingjob.numeric <- as.numeric(ESS_Immigrants$neveremployed.seekingjob)
+table(ESS_Immigrants$neveremployed.seekingjob.numeric) # unemployed 1
+
+# unemployed
+
+ESS_Immigrants$unemployed.more.12m <-ESS_Immigrants$uemp12m == 'Yes' | ESS_Immigrants$uemp5yr == 'Yes'
+ESS_Immigrants$unemployed.more.12m.numeric <- as.numeric(ESS_Immigrants$unemployed.more.12m)
+table(ESS_Immigrants$unemployed.more.12m.numeric) # unemployed 1
+
+
+#employed. immigrants
+table(ESS_Immigrants$emplrel)
+ESS_Immigrants$employed <- ESS_Immigrants$emplrel == 'Employee' |ESS_Immigrants$emplrel == 'Self-employed' |
+  ESS_Immigrants$emplrel == 'Working for own family business'
+
+table(ESS_Immigrants$employed)
+ESS_Immigrants$employed.numeric <- as.numeric(ESS_Immigrants$employed) # employed 1
+
+##  for GLM
+# unemployed
+
+#----------------------------------------#----------------------------------------
+
+
+# GLM
+
+GLM1 <- glm(fldscr ~ 
+              host.dontallow.immigrants +
+              host.tertiary.percent +
+              host.foreign.born.percent +
+              neveremployed.seekingjob.numeric + 
+              ctzcntr.numeric  +
+              Ortho.otherChristian.numeric + 
+              Islamic.numeric  +    
+              edulvlb+
+              polintr.numeric+
+              employed.numeric,
+              #host.interested.politics+
+              # host.gdp.2018.2020 + 
+              # host.EU.expansion +
+              # host.rightwing +
+              # vote.numeric  +
+              # origin.non.EUschengen.numeric  +
+              # minority.ethnic.numeric +
+              # hinctnta.numeric +
+            family = binomial(), data = ESS_Immigrants, weights = anweight)
+
+
+GLM2 <- glm(fldscr ~ 
+              host.dontallow.immigrants +
+              host.tertiary.percent +
+              host.foreign.born.percent,
+            family = binomial(), data = ESS_Immigrants, weights = anweight)
+
+
+GLM3 <- glm(fldscr ~ 
+              neveremployed.seekingjob.numeric + 
+              ctzcntr.numeric  +
+              Ortho.otherChristian.numeric + 
+              Islamic.numeric  +    
+              edulvlb+
+              polintr.numeric+
+              employed.numeric,
+            family = binomial(), data = ESS_Immigrants, weights = anweight)
+
+
+GLM1[1]
+tb_glm_coeffi <- GLM1[1]
+df_glm_coeffi <- as.data.frame(tb_glm_coeffi)
+df_glm_coeffi$variable <- rownames(df_glm_coeffi) 
+df_glm_coeffi <- df_glm_coeffi[order(-df_glm_coeffi$coefficients), ]
+length(df_glm_coeffi$coefficients)
+df_glm_coeffi <- df_glm_coeffi[order(df_glm_coeffi$coefficients),]
+df_glm_coeffi$coefficients <- round(df_glm_coeffi$coefficients,3)
+df_glm_coeffi
+
+ggplot(df_glm_coeffi, aes(x = coefficients, y = reorder(variable, coefficients))) +
+  geom_bar(stat = "identity") + 
+  labs(title = "Discrimination perceived by immigrants", x = "Feel more discrimination", y = 'Variables') 
+  #theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ESS_Immigrants[, c('firstgen.born.country', 'Catholic.Protestant', "fldscr")]
+df_catholic <- subset(ESS_Immigrants, ESS_Immigrants$fldscr == TRUE & ESS_Immigrants$Catholic.Protestant == TRUE )
+table(df_catholic$firstgen.born.country)
+table(df_catholic$secondgen.mborn.country)
+table(df_catholic$secondgen.fborn.country)
+# result poland, brazil 
+
+
+GLM2[1]
+tb_glm_coeffi2 <- GLM2[1]
+df_glm_coeffi2 <- as.data.frame(tb_glm_coeffi2)
+df_glm_coeffi2$variable <- rownames(df_glm_coeffi2) 
+df_glm_coeffi2 <- df_glm_coeffi2[order(-df_glm_coeffi2$coefficients), ]
+length(df_glm_coeffi2$coefficients)
+df_glm_coeffi2
+df_glm_coeffi2 <- df_glm_coeffi2[order(df_glm_coeffi2$coefficients),]
+
+
+ggplot(df_glm_coeffi2, aes(x = coefficients, y = reorder(variable, coefficients))) +
+  geom_bar(stat = "identity") + 
+  labs(title = "Discrimination perceived by immigrants", x = "Feel more discrimination", y = 'Variable-related to immigrants') 
+#theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+GLM3[1]
+tb_glm_coeffi3 <- GLM3[1]
+tb_glm_coeffi3 <- as.data.frame(tb_glm_coeffi3)
+tb_glm_coeffi3$variable <- rownames(tb_glm_coeffi3) 
+tb_glm_coeffi3 <- tb_glm_coeffi3[order(-tb_glm_coeffi3$coefficients), ]
+length(tb_glm_coeffi3$coefficients)
+tb_glm_coeffi3
+tb_glm_coeffi3 <- tb_glm_coeffi3[order(tb_glm_coeffi3$coefficients),]
+
+
+ggplot(tb_glm_coeffi3, aes(x = coefficients, y = reorder(variable, coefficients))) +
+  geom_bar(stat = "identity") + 
+  labs(title = "Discrimination perceived by immigrants", x = "feel more discrimination", y = 'Variable-related to host country') 
+#theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+
+#----------------------------------------#----------------------------------------
+#------------------------------------------------------------------------------------------------------------
+
+### 5.1. immigrants dscrimnation general trend by origin country (first generation)
+# ESS7,8,9,10 respondents 
+
+
+###  DV ; ESS$immigrants.fldscr
+
+
+ESS_Immigrants$fldscr <- ESS_Immigrants$dscrrce == "Marked" | 
+  ESS_Immigrants$dscretn == "Marked" | 
+  ESS_Immigrants$dscrntn   == "Marked" | 
+  ESS_Immigrants$dscrrlg  == "Marked" | 
+  ESS_Immigrants$dscrlng  == "Marked"
+
+
+ESS_Immigrants$fldscr <- ifelse(ESS_Immigrants$fldscr, TRUE == 1, 0)
+table(ESS_Immigrants$fldscr)
+
+ESS_Immigrants_fldscr <- subset(ESS_Immigrants, ESS_Immigrants$fldscr == 1)
+
+df_Immigrants_fldscr1 <- ESS_Immigrants_fldscr[, c('firstgen.born.country')]
+
+df_Immigrants_fldscr1 <- as.data.frame(table(df_Immigrants_fldscr1))
+
+# df_Immigrants_fldscr1<- df_Immigrants_fldscr1[1:100,] 
+# df_Immigrants_fldscr1<- df_Immigrants_fldscr2[1:100,] 
+# df_Immigrants_fldscr1<- df_Immigrants_fldscr3[1:100,] 
+
+colnames(df_Immigrants_fldscr1) <- c('Country','Count')
+
+
+### percenatge fldscr among immigrants each countries (only first gen)
+df_firstgen_Immigrants_fldscr <- merge(df_Immigrants_fldscr1, df_firstgen_born_country, by = "Country")
+names(df_firstgen_Immigrants_fldscr) <- c('Country', 'feel.dscr','num.immigrants')
+
+df_firstgen_Immigrants_fldscr$Percentage <- round(df_firstgen_Immigrants_fldscr$feel.dscr / df_firstgen_Immigrants_fldscr$num.immigrants * 100, 3)
+df_firstgen_Immigrants_fldscr <- df_firstgen_Immigrants_fldscr[order(-df_firstgen_Immigrants_fldscr$feel.dscr), ]
+df_firstgen_Immigrants_fldscr_100 <- df_firstgen_Immigrants_fldscr[1:100,]
+df_firstgen_Immigrants_fldscr_100 
+
+
+
+# Assuming that df_firstgen_Immigrants_fldscr_100 is your data frame
+df <- df_firstgen_Immigrants_fldscr_100 
+
+# Create the plot
+ggplot(df, aes(x = reorder(Country, -feel.dscr), y = feel.dscr)) +
+  geom_col(fill = 'grey') +
+  labs(title = 'Number of immigrants experiencing discrimination by country of origin', x = "Country", y = "Number of Immigrants") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
+  scale_y_continuous(sec.axis = sec_axis(~./max(df$feel.dscr)*100, name = "Percentage(%)"), 
+                     breaks = seq(0, max(df$feel.dscr), by = 10))+
+  geom_line(aes(y = Percentage*max(df$feel.dscr)/100), group = 1, color = "red") 
+
+
+#------------------------------------------------------------------------------------------------------------
+### 5.2 Immigrants who feel discrimination general trend by host country (first and second) 
+
+ESS_Immigrants$fldscr <- ESS_Immigrants$dscrrce == "Marked" | 
+  ESS_Immigrants$dscretn == "Marked" | 
+  ESS_Immigrants$dscrntn   == "Marked" | 
+  ESS_Immigrants$dscrrlg  == "Marked" | 
+  ESS_Immigrants$dscrlng  == "Marked"
+
+
+ESS_Immigrants$fldscr <- ifelse(ESS_Immigrants$fldscr, TRUE == 1, 0)
+table(ESS_Immigrants$fldscr)
+
+ESS_Immigrants_fldscr <- subset(ESS_Immigrants, ESS_Immigrants$fldscr == 1)
+
+
+df_cntry_Immigrants_fldscr <- ESS_Immigrants_fldscr[, c('cntry')]
+table(df_cntry_Immigrants_fldscr)
+df_cntry_Immigrants_fldscr <- as.data.frame(table(df_cntry_Immigrants_fldscr))
+names(df_cntry_Immigrants_fldscr) <- c("Country", "Frequency")
+
+df_cntry_Immigrants_fldscr <- merge(df_cntry_Immigrants_fldscr, df_cntry_ESS_Immigrants, by="Country" )
+
+df_cntry_Immigrants_fldscr$percenatge <- round(df_cntry_Immigrants_fldscr$Frequency/df_cntry_Immigrants_fldscr$Counts.of.Immigrants *100, 3)
+df_cntry_Immigrants_fldscr
+
+sum(df_cntry_Immigrants_fldscr$Frequency)
+sum(df_cntry_Immigrants_fldscr$Counts.of.Immigrants)
+
+# Generate a bar chart
+ggplot(df_cntry_Immigrants_fldscr, aes(x = reorder(Country, -round(percenatge)), y = round(percenatge))) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  theme_minimal() +
+  labs(title = "Percentage of immigrants who say they feel discriminated against, by host country",
+       x = "Country",
+       y = "Percentage (%)") +
+  scale_y_continuous(breaks = seq(0, max(df_cntry_Immigrants_fldscr$percenatge), by = 1))  
+
+
+
+#------------------------------------------------------------------------------------------------------------
+
+#------------------------------------------------------------------------------------------------------------
+
+
+### feeling discrimination 
+ESS_Immigrants$fldscr <- ESS_Immigrants$dscrrce == "Marked" | 
+  ESS_Immigrants$dscretn == "Marked" | 
+  ESS_Immigrants$dscrntn   == "Marked" | 
+  ESS_Immigrants$dscrrlg  == "Marked" | 
+  ESS_Immigrants$dscrlng  == "Marked"
+
+
+df_feel_dscr <- ESS_Immigrants_fldscr[, c('cntry', 'dscrrce', 'dscretn','dscrntn', 'dscrrlg','dscrlng' )]
+
+df_feel_dscr <- ESS_Immigrants_fldscr %>%
+  summarise(dscrrce_sum = sum(dscrrce == "Marked"),
+            dscrrce_sum = sum(dscretn == "Marked"),
+            dscrntn_sum = sum(dscrntn == "Marked"),
+            dscrrlg_sum = sum(dscrrlg == "Marked"),
+            dscrlng_sum = sum(dscrlng == "Marked"))
+
+df_feel_dscr
+
+df_feel_dscr <- ESS_Immigrants_fldscr %>%
+  group_by(cntry) %>%
+  summarise(dscrrce_sum = sum(dscrrce == "Marked"),
+            dscrrce_sum = sum(dscretn == "Marked"),
+            dscrntn_sum = sum(dscrntn == "Marked"),
+            dscrrlg_sum = sum(dscrrlg == "Marked"),
+            dscrlng_sum = sum(dscrlng == "Marked"))
+
+df_feel_dscr
+
+
+df_feel_dscr$Counts.of.Immigrants <- df_cntry_ESS_Immigrants$Counts.of.Immigrants
+df_feel_dscr[2:5] <- df_feel_dscr[2:5] / df_feel_dscr$Counts.of.Immigrants *100
+df_feel_dscr
+
+ESS_Immigrants_fldscr$dscrrce
+ESS_Immigrants_fldscr$dscretn
+ESS_Immigrants_fldscr$dscrntn
+ESS_Immigrants_fldscr$dscrrlg
+ESS_Immigrants_fldscr$dscrlng
+
+
+ESS_Immigrants_feel_dscr_fig <- ESS_Immigrants_fldscr[, c('cntry', 'dscrrce', 'dscretn',  'dscrntn', 'dscrrlg', 'dscrlng')]
+ESS_Immigrants_feel_dscr_fig <- aggregate(ESS_Immigrants_feel_dscr_fig, .~ cntry, sum)
+
+
+#--------------------------------------------------------------------------
+#--------------------------------------------------------------------------
+## 5.3  discrimination faced by immigrants by categories  
+## by immigrants by dscr categories (race, ethnicity,nationality, religion, language ) 
+
+ESS_Immigrants_fldscr
+
+ESS_Immigrants$fldscr <- ESS_Immigrants$dscrrce == "Marked" | 
+  ESS_Immigrants$dscretn == "Marked" | 
+  ESS_Immigrants$dscrntn   == "Marked" | 
+  ESS_Immigrants$dscrrlg  == "Marked" | 
+  ESS_Immigrants$dscrlng  == "Marked"
+
+
+ESS_Immigrants_fldscr <- subset(ESS_Immigrants, ESS_Immigrants$fldscr == TRUE)
+df_fldscr_category <- as.data.frame(ESS_Immigrants_fldscr[, c('dscrrce', 'dscretn',  'dscrntn', 'dscrrlg', 'dscrlng')])
+
+df_summary <- df_fldscr_category %>%
+  summarise(across(everything(), ~sum(. == "Marked")))
+df_summary
+
+
+#--------------------------------------------------------------------------
+## who answered I felt discrimination by nationality 
+
+df_ESS_Immigrants_fldscr_nationality <- subset(ESS_Immigrants_fldscr, ESS_Immigrants_fldscr$dscrntn == 'Marked')
+df_ESS_Immigrants_fldscr_nationality <- df_ESS_Immigrants_fldscr_nationality[,c('firstgen.born.country')]
+df_ESS_Immigrants_fldscr_nationality <- as.data.frame(table(df_ESS_Immigrants_fldscr_nationality))
+df_ESS_Immigrants_fldscr_nationality$percent <- round(df_ESS_Immigrants_fldscr_nationality$Freq / 978 *100, 1)
+df_ESS_Immigrants_fldscr_nationality
+
+## who answered I felt discrimination by race, ethnicity 
+df_ESS_Immigrants_fldscr_race.ethn <- subset(ESS_Immigrants_fldscr,ESS_Immigrants_fldscr$dscrrce == 'Marked'|
+                                            ESS_Immigrants_fldscr$dscretn == 'Marked' )
+df_ESS_Immigrants_fldscr_race.ethn <- df_ESS_Immigrants_fldscr_race.ethn[,c('firstgen.born.country')]
+df_ESS_Immigrants_fldscr_race.ethn <- as.data.frame(table(df_ESS_Immigrants_fldscr_race.ethn))
+df_ESS_Immigrants_fldscr_race.ethn$percent <- round(df_ESS_Immigrants_fldscr_race.ethn$Freq / 1152 *100, 1)
+df_ESS_Immigrants_fldscr_race.ethn
+
+## who answered I felt discrimination by religion 
+
+df_ESS_Immigrants_fldscr_religion <- subset(ESS_Immigrants_fldscr, ESS_Immigrants_fldscr$dscrrlg == 'Marked')
+df_ESS_Immigrants_fldscr_religion <- df_ESS_Immigrants_fldscr_religion[,c('rlgdnm')]
+df_ESS_Immigrants_fldscr_religion <- as.data.frame(table(df_ESS_Immigrants_fldscr_religion))
+df_ESS_Immigrants_fldscr_religion$percent <- round(df_ESS_Immigrants_fldscr_religion$Freq / 659 *100, 1)
+df_ESS_Immigrants_fldscr_religion
+
+
+
+#----------------------------------------#----------------------------------------
+# By unemployed
+
+df_immigrants_fldscr_neveremployed.seekingjob <- ESS_Immigrants_fldscr[ESS_Immigrants_fldscr$neveremployed.seekingjob.numeric == 1,]
+df_immigrants_fldscr_neveremployed.seekingjob <- as.data.frame(table(df_immigrants_fldscr_neveremployed.seekingjob[,c('neveremployed.seekingjob.numeric', 'firstgen.born.country')]))
+df_immigrants_fldscr_neveremployed.seekingjob$Freq
+
+df_immigrants_neveremployed.seekingjob <- ESS_Immigrants[ESS_Immigrants$neveremployed.seekingjob.numeric == 1,]
+df_immigrants_neveremployed.seekingjob <- as.data.frame(table(df_immigrants_neveremployed.seekingjob[,c('neveremployed.seekingjob.numeric', 'firstgen.born.country')]))
+df_immigrants_neveremployed.seekingjob$Freq
+
+
+ls_notfldscr_neveremployed.seekingjob <- setdiff(df_immigrants_neveremployed.seekingjob$firstgen.born.country, df_immigrants_fldscr_neveremployed.seekingjob$firstgen.born.country)
+df_immigrants_neveremployed.seekingjob <- df_immigrants_neveremployed.seekingjob[!(df_immigrants_neveremployed.seekingjob$firstgen.born.country %in% ls_notfldscr_neveremployed.seekingjob), ]
+
+df_immigrants_fldscr_neveremployed.seekingjob$neveremployed.seekingjob <- df_immigrants_neveremployed.seekingjob$Freq
+df_immigrants_fldscr_neveremployed.seekingjob$percent <- round(df_immigrants_fldscr_neveremployed.seekingjob$Freq/ df_immigrants_fldscr_neveremployed.seekingjob$neveremployed.seekingjob *100 ,3)
+
+df_immigrants_fldscr_neveremployed.seekingjob$neveremployed.seekingjob.numeric <- NULL
+
+colnames(df_immigrants_fldscr_neveremployed.seekingjob) <- c('Country', 'num.fldscr.neveremployed.seekingjob', 'num.neveremployed.seekingjob', 'per.fldscr.neveremployed.seekingjob')
+
+df <- df_immigrants_fldscr_neveremployed.seekingjob[1:100,] 
+
+# Create the plot
+ggplot(df, aes(x = reorder(Country, -num.fldscr.neveremployed.seekingjob), y = num.fldscr.neveremployed.seekingjob)) +
+  geom_col(fill = "grey") +
+  labs(title = 'Number and percentage of immigrants, never employed and looking for work, and report feeling discriminated against ', x = "Country", y = "Number of citizen Immigrants who feel discrimination") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 6)) +
+  scale_y_continuous(sec.axis = sec_axis(~./max(df$num.fldscr.neveremployed.seekingjob)*100, name = "Percentage(%)"), 
+                     breaks = seq(0, max(df$num.fldscr.neveremployed.seekingjob), by = 5))+
+  geom_line(aes(y = per.fldscr.neveremployed.seekingjob*max(df$num.fldscr.neveremployed.seekingjob)/100), group = 1, color = "blue") 
+
+
+
+# host education level and immigrants edulevel 
+
+ESS_Non_Immigrants$eurostat.tertiary.normalized
+
+ESS_Non_Immigrants$edulvlb.mean.normalized
+
+
+#----------------------------------------------------------------------------------------------------------------------------------------------------
+## by wages
+## correlation between wages and feeling dscr 
+df_feel_dscr_houseincome <- as.data.frame(table(ESS_Immigrants_fldscr$hinctnta))
+
+plot(df_feel_dscr_houseincome)
+
+df_ESS_Immigrants_houseincome <- as.data.frame(table(ESS_Immigrants$hinctnta))
+df_ESS_Immigrants_houseincome$Freq
+
+
+df_feel_dscr_houseincome$num.immigrants <- df_ESS_Immigrants_houseincome$Freq
+df_feel_dscr_houseincome$fldscr.percent <- round(df_feel_dscr_houseincome$Freq / df_feel_dscr_houseincome$num.immigrants *100, 3)
+df_feel_dscr_houseincome$Var1 <- as.numeric(row.names(df_feel_dscr_houseincome))
+df_feel_dscr_houseincome <- df_feel_dscr_houseincome[1:10,]
+
+plot(df_feel_dscr_houseincome$Var1, df_feel_dscr_houseincome$fldscr.percent)
+
+
+# Enhancing the graph with labels, title, and more
+plot(df_feel_dscr_houseincome$Var1, df_feel_dscr_houseincome$fldscr.percent, 
+     type="b", # adds both points and lines
+     pch=19, # solid circle points
+     xlab="Total house income", 
+     ylab="Percentage Feeling Discrimination (%)", 
+     main="Percentage of immigrants who feel discriminated against, by total house income ", 
+     xlim=c(1,10), 
+     ylim=c(0, max(df_feel_dscr_houseincome$fldscr.percent) + 5),
+     col="blue", 
+     lwd=2)
+grid(lty="dotted")
+text(df_feel_dscr_houseincome$Var1, df_feel_dscr_houseincome$fldscr.percent, 
+     labels=round(df_feel_dscr_houseincome$fldscr.percent, 2), 
+     pos=4, cex=0.7, offset=0.5)
+
+#----------------------------------------#----------------------------------------
+#----------------------------------------#----------------------------------------
+
+### 6.	Attitudes Toward Immigration Across European Countries after 2014 1000
+### 6.1 National level analysis By host country 
+
+#· imsmetn - Allow many/few immigrants of same race/ethnic group as majority / 4 Don't Allow many to come and live here
+#· imdfetn - Allow many/few immigrants of different race/ethnic group from majority / 4 Don't Allow many to come and live here
+#· impcntr - Allow many/few immigrants from poorer countries outside Europe / 4 Don't Allow many to come and live here
+
+# · imbgeco - Immigration bad or good for country's economy /10 Good for the economy
+# · imueclt - Country's cultural life undermined or enriched by immigrants / 10 Cultural life enriched
+# · imwbcnt - Immigrants make country worse or better place to live  / 10 Better place to live
+
+
+
+#ESS_Non_Immigrants$dont.allow.immigrants
+table(ESS_Non_Immigrants$imsmetn)
+table(ESS_Non_Immigrants$imdfetn)
+table(ESS_Non_Immigrants$impcntr)
+
+
+df_dontallow_immigrants <- ESS_Non_Immigrants[, c('cntry', 'imsmetn.numeric' , 'imdfetn.numeric', 'impcntr.numeric')]
+df_dontallow_immigrants <- aggregate(. ~ cntry, df_dontallow_immigrants, sum)
+df_dontallow_immigrants 
+
+df_dontallow_immigrants$same.race.mean <- df_dontallow_immigrants$imsmetn.numeric/df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_dontallow_immigrants$diff.race.mean <- df_dontallow_immigrants$imdfetn.numeric/df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_dontallow_immigrants$poor.cntry.mean <- df_dontallow_immigrants$impcntr.numeric/df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+
+
+df_dontallow_immigrants$same.race.mean.normal <- round(scale(df_dontallow_immigrants$same.race.mean, scale = TRUE , center = TRUE),3)
+df_dontallow_immigrants$diff.race.mean.normal <- round(scale(df_dontallow_immigrants$diff.race.mean, scale = TRUE , center = TRUE),3)
+df_dontallow_immigrants$poor.cntry.mean.normal <- round(scale(df_dontallow_immigrants$poor.cntry.mean, scale = TRUE , center = TRUE),3)
+df_dontallow_immigrants
+# df_dontallow_immigrants[2:4] <- NULL
+
+df_long <- df_dontallow_immigrants[, c('cntry', 'same.race.mean','diff.race.mean', 'poor.cntry.mean')]  %>% 
+  pivot_longer(cols = -cntry, 
+               names_to = "measure", 
+               values_to = "value")
+
+
+ggplot(data = df_long, aes(x = cntry, y = value, color = measure, group = measure)) +
+  geom_line() +
+  theme_minimal() +
+  labs(title = "Attitudes towards immigrants by education level of host country",
+       y = "Don't allow immigrants",
+       x = "Country") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 0, hjust = 1)) +
+  scale_color_brewer(palette = "Set1")
+
+
+
+
+df_long1 <- df_dontallow_immigrants[, c('cntry', 'same.race.mean.normal','diff.race.mean.normal', 'poor.cntry.mean.normal')]  %>% 
+  pivot_longer(cols = -cntry, 
+               names_to = "measure", 
+               values_to = "value")
+
+ggplot(data = df_long1, aes(x = cntry, y = value, fill = measure)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  theme_minimal() +
+  labs(title = "Attitudes towards immigrants by education level of host country",
+       y = "Don't allow immigrants",
+       x = "Country") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 0, hjust = 1)) +
+  scale_fill_brewer(palette = "Set1")
+
+
+
+
+# impression towards immigrants
+
+# · imbgeco - Immigration bad or good for country's economy /10 Good for the economy
+# · imueclt - Country's cultural life undermined or enriched by immigrants / 10 Cultural life enriched
+# · imwbcnt - Immigrants make country worse or better place to live  / 10 Better place to live
+
+table(ESS_Non_Immigrants$imbgeco)
+table(ESS_Non_Immigrants$imueclt)
+table(ESS_Non_Immigrants$imwbcnt)
+
+
+df_impression_immigrants <- ESS_Non_Immigrants[, c('cntry', 'imbgeco' , 'imueclt', 'imwbcnt')]
+df_impression_immigrants <- aggregate(. ~ cntry, df_impression_immigrants, sum)
+df_impression_immigrants 
+
+df_impression_immigrants$goodeconomy.mean <- df_impression_immigrants$imbgeco/df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_impression_immigrants$enrichculture.mean <- df_impression_immigrants$imueclt/df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+df_impression_immigrants$bettercntry.mean <- df_impression_immigrants$imwbcnt/df_cntry_ESS_Non_Immigrants$Counts.of.Non.Immigrants
+
+df_impression_immigrants$goodeconomy.mean <- round(scale(df_impression_immigrants$goodeconomy.mean, scale = TRUE, center = TRUE),3)
+df_impression_immigrants$enrichculture.mean <- round(scale(df_impression_immigrants$enrichculture.mean, scale = TRUE, center = TRUE),3)
+df_impression_immigrants$bettercntry.mean <- round(scale(df_impression_immigrants$bettercntry.mean, scale = TRUE, center = TRUE),3)
+
+df_impression_immigrants
+df_impression_immigrants[2:4] <- NULL
+
+## ggplot
+
+
+df_long <- df_impression_immigrants %>%
+  pivot_longer(cols = -cntry, 
+               names_to = "measure", 
+               values_to = "value")
+
+ggplot(data = df_long, aes(x = cntry, y = value, fill = measure)) +
+  geom_bar(stat = "identity", position = "dodge", width = 0.7) +
+  theme_minimal() +
+  labs(title = "Impression on Immigrants by host country",
+       y = "Good impression on immigrants",
+       x = "Country") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 0, hjust = 1)) +
+  scale_fill_brewer(palette = "Set2")
+
+
+
+#----------------------------------------#----------------------------------------
+
+## 6.2 National level analysis of host immigrants by educational level 
+
+df_eurostat_tertiary.percent
+## tertiary and don't allow immigrants
+df_combined <- left_join(df_dontallow_immigrants, df_eurostat_tertiary.percent, by = "cntry")
+df_combined <- df_combined[order(-df_combined$eurostat.tertiary.normalized),]
+df_combined$cntry <- factor(df_combined$cntry, levels = df_combined$cntry)
+df_combined
+
+
+# First, make the data longer for the bars
+df_long <- df_combined %>%
+  select('cntry', 'same.race.mean.normal', 'diff.race.mean.normal' , 'poor.cntry.mean.normal') %>%
+  pivot_longer(cols = c('same.race.mean.normal', 'diff.race.mean.normal' , 'poor.cntry.mean.normal'), 
+               names_to = "measure", 
+               values_to = "value")
+
+df_combined <- df_combined %>% 
+  arrange(desc(eurostat.tertiary.normalized))
+
+df_long$cntry <- factor(df_long$cntry, levels = df_combined$cntry)
+
+ggplot() +
+  geom_bar(data = df_long, aes(x = cntry, y = value, fill = measure, group = measure),
+           stat = "identity", position = "dodge", width = 0.7) +
+  theme_minimal() +
+  labs(title = "Attitudes towards immigrants by education level of host country",
+       y = "Don't allow immigrants",
+       x = "Country") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_brewer(palette = "Set1") +
+  geom_line(data = df_combined, aes(x = cntry, y = eurostat.tertiary.normalized, group = 1, color = "eurostat.tertiary.normalized"), size = 1)
+
+
+# ____________________________
+## tertiary and impression
+# Joining dataframes by 'cntry'
+df_combined1 <- left_join(df_impression_immigrants, df_eurostat_tertiary.percent, by = "cntry")
+df_combined1 <- df_combined1[order(-df_combined1$eurostat.tertiary.normalized),]
+df_combined1$cntry <- factor(df_combined1$cntry, levels = df_combined1$cntry)
+df_combined1
+
+
+# First, make the data longer for the bars
+df_long1 <- df_combined1 %>%
+  select(cntry, goodeconomy.mean, enrichculture.mean, bettercntry.mean) %>%
+  pivot_longer(cols = c(goodeconomy.mean, enrichculture.mean, bettercntry.mean), 
+               names_to = "measure", 
+               values_to = "value")
+
+df_combined1 <- df_combined1 %>% 
+  arrange(desc(eurostat.tertiary.normalized))
+df_long1$cntry <- factor(df_long1$cntry, levels = df_combined1$cntry)
+
+ggplot() +
+  geom_bar(data = df_long1, aes(x = cntry, y = value, fill = measure, group = measure),
+           stat = "identity", position = "dodge", width = 0.7) +
+  theme_minimal() +
+  labs(title = " Impression on immigrants by education level of host country",
+       y = "Good imgression",
+       x = "Country") +
+  theme(legend.title = element_blank(),
+        legend.position = "bottom",
+        axis.text.x = element_text(angle = 0, hjust = 1)) +
+  scale_fill_brewer(palette = "Set2") +
+  geom_line(data = df_combined1, aes(x = cntry, y = eurostat.tertiary.normalized, group = 1, color = "eurostat.tertiary.normalized"), size = 1)
+
+  
+# robustness?
+# host.tertiary vs ESS_edulevel
+
+df_Nonimmigrants_edulevel_cntry <- ESS_Non_Immigrants[,c('cntry', 'edulvlb')]
+table(df_Nonimmigrants_edulevel_cntry$edulvlb) 
+
+
+df_Nonimmigrants_edulevel_cntry <- aggregate(df_Nonimmigrants_edulevel_cntry, .~cntry, sum)
+df_Nonimmigrants_edulevel_cntry$Counts.of.Non.Immigrants <- df_cntry_counts$Counts.of.Non.Immigrants
+df_Nonimmigrants_edulevel_cntry$edulvlb.mean.normalized <- round(scale(df_Nonimmigrants_edulevel_cntry$edulvlb / df_Nonimmigrants_edulevel_cntry$Counts.of.Non.Immigrants *100, scale = TRUE, center = TRUE ), 3)
+df_Nonimmigrants_edulevel_cntry
+
+df_Nonimmigrants_edulevel_cntry[2:3] <- NULL
+df_Nonimmigrants_edulevel_cntry
+#----------------------------------------#----------------------------------------
+
+
+
+
+
+
+
+
+#---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+### 6.3  by education level / host individual 
+
+# edu level and attitude towards same race immigrants 
+
+# eisced - Highest level of education, ES - ISCED
+
+
+df_cor_edu_attitude <- ESS_Non_Immigrants[, c('edulvlb', 'imsmetn.numeric', 'imdfetn.numeric', 'impcntr.numeric')]
+df_cor_edu_attitude
+
+
+df_host_edu_attitude<- aggregate(df_cor_edu_attitude, . ~ edulvlb, sum )
+df_host_edu_attitude <- cbind(df_host_edu_attitude , as.data.frame(table(ESS_Non_Immigrants$edulvlb)))
+df_host_edu_attitude$Var1 <- NULL
+df_host_edu_attitude
+df_host_edu_attitude[2:4] <- df_host_edu_attitude[2:4]/df_host_edu_attitude$Freq
+df_host_edu_attitude
+
+
+library(RColorBrewer)
+df_long <- tidyr::pivot_longer(df_host_edu_attitude, c(imsmetn.numeric, imdfetn.numeric, impcntr.numeric), names_to = "group", values_to = "mean_attitude")
+ ggplot(df_long, aes(x = edulvlb, y = mean_attitude, color = group)) +
+  geom_point(aes(shape = group), size = 4) + 
+  geom_line(aes(group = group)) +  
+  labs(x = "Education Level of natives (ES - ISCED)",
+       y = "Don't Allow Immigrants",
+       color = "Immigrant Group",
+       title = "Attitudes towards immigrants by education level of natives") +
+  scale_x_continuous(breaks = seq(min(df_long$edulvlb), max(df_long$edulvlb), by = 50)) + 
+  scale_color_brewer(palette="Set1") +  
+  theme_minimal() +  
+  theme(legend.position="bottom", 
+        plot.title = element_text(hjust = 0.5),  
+        axis.text.x = element_text(angle = 0, hjust = 1)) 
+
+
+
+## edu level and impression on immigrants 
+
+# · imbgeco - Immigration bad or good for country's economy /10 Good for the economy
+# · imueclt - Country's cultural life undermined or enriched by immigrants / 10 Cultural life enriched
+# · imwbcnt - Immigrants make country worse or better place to live  / 10 Better place to live
+
+
+df_cor_impression <- ESS_Non_Immigrants[, c('edulvlb', 'imbgeco', 'imueclt', 'imwbcnt')]
+df_cor_impression
+
+
+# edu years and attitude towards same race immigrants 
+df_host_edu_impression <- aggregate(df_cor_impression, . ~ edulvlb, sum )
+df_host_edu_impression <- cbind(df_host_edu_impression , as.data.frame(table(ESS_Non_Immigrants$edulvlb)))
+df_host_edu_impression$Var1 <- NULL
+df_host_edu_impression
+df_host_edu_impression[2:4] <- df_host_edu_impression[2:4]/df_host_edu_impression$Freq
+df_host_edu_impression
+
+library(RColorBrewer)
+df_long <- tidyr::pivot_longer(df_host_edu_impression, c('imbgeco', 'imueclt', 'imwbcnt'), names_to = "group", values_to = "mean_impression")
+ggplot(df_long, aes(x = edulvlb, y = mean_impression, color = group)) +
+  geom_point(aes(shape = group), size = 4) + 
+  geom_line(aes(group = group)) +  
+  labs(x = "Education Level of natives (ES - ISCED)",
+       y = "Good impression",
+       color = "Immigrant Group",
+       title = "Impression on immigrants by education level of natives") +
+  scale_x_continuous(breaks = seq(min(df_long$edulvlb), max(df_long$edulvlb), by = 50)) +  
+  scale_color_brewer(palette="Set2") +  
+  theme_minimal() +  
+  theme(legend.position="bottom",  
+        plot.title = element_text(hjust = 0.5),  
+        axis.text.x = element_text(angle = 0, hjust = 1)) 
+
+
+
+#------------------------------------------------------------#----------------------------------------#--------------------
+## only general highest ISCED level
+ls_edulevel_general  <-  c(0, 1, 113, 212, 213, 311, 312, 313, 412, 413, 510, 610, 620, 719, 720, 800)
+
+## only general attitudes 
+df_edulevel_general_attitudes <- df_host_edu_attitude[df_host_edu_attitude$edulvlb %in% ls_edulevel_general, ]
+
+
+df_long <- tidyr::pivot_longer(df_edulevel_general_attitudes, 
+                               cols = c('imsmetn.numeric', 'imdfetn.numeric', 'impcntr.numeric') ,
+                               names_to = "attitude_metric", 
+                               values_to = "mean_value")
+
+ggplot(df_long, aes(x = as.factor(edulvlb), y = mean_value, color = attitude_metric, group = attitude_metric)) +
+  geom_line(size = 1.5) + 
+  geom_point(size = 3) +
+  labs(
+    x = "Education Level of natives (general)",
+    y = "Don't allow immigrants",
+    color = "Attitude Metric",
+    title = "Attitude towards immigrants by education level of natives"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+
+## impression, 
+df_edulevel_general_impression <- df_host_edu_impression[df_host_edu_impression$edulvlb %in% ls_edulevel_general, ]
+
+
+df_long <- tidyr::pivot_longer(df_edulevel_general_impression, 
+                               cols = c(imbgeco, imueclt, imwbcnt), 
+                               names_to = "impression", 
+                               values_to = "mean_value")
+
+# Create a line graph
+ggplot(df_long, aes(x = as.factor(edulvlb), y = mean_value, color = impression, group = impression)) +
+  geom_line(size = 1.5) + 
+  geom_point(size = 3) +
+  labs(
+    x = "Education Level of natives (general)",
+    y = "Good impression",
+    color = "impression",
+    title = "Impressions of immigrants by education level of natives"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+#--------------------#----------------------------------------#----------------------------------------#--------------------
+
+## only vocational
+
+ls_edulevel_vocational <- c(0, 1, 129, 221, 222, 223, 229, 321, 322, 323, 421, 422, 423, 520)
+
+## only general attitudes 
+df_edulevel_vocational_attitudes <- df_host_edu_attitude[df_host_edu_attitude$edulvlb %in% ls_edulevel_vocational, ]
+
+
+df_long <- tidyr::pivot_longer(df_edulevel_vocational_attitudes, 
+                               cols = c('imsmetn.numeric', 'imdfetn.numeric', 'impcntr.numeric') ,
+                               names_to = "attitude_metric", 
+                               values_to = "mean_value")
+
+ggplot(df_long, aes(x = as.factor(edulvlb), y = mean_value, color = attitude_metric, group = attitude_metric)) +
+  geom_line(size = 1.5) + 
+  geom_point(size = 3) +
+  labs(
+    x = "Education Level of natives (voataional)",
+    y = "Don't allow immigrants",
+    color = "Attitude Metric",
+    title = "Attitudes towards immigrants by education level of natives"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+
+
+
+## impression, 
+df_edulevel_vocational_impression <- df_host_edu_impression[df_host_edu_impression$edulvlb %in% ls_edulevel_vocational, ]
+
+
+df_long <- tidyr::pivot_longer(df_edulevel_vocational_impression, 
+                               cols = c(imbgeco, imueclt, imwbcnt), 
+                               names_to = "impression", 
+                               values_to = "mean_value")
+
+ggplot(df_long, aes(x = as.factor(edulvlb), y = mean_value, color = impression, group = impression)) +
+  geom_line(size = 1.5) + 
+  geom_point(size = 3) +
+  labs(
+    x = "Education Level of natives (vocational)",
+    y = "Good impression on Immigrants",
+    color = "impression",
+    title = "Impressions of immigrants by education level of natives"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 0, hjust = 1),
+    plot.title = element_text(hjust = 0.5)
+  )
+
+#----------------------------------------#----------------------------------------
+
